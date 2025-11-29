@@ -1,0 +1,16 @@
+[package]
+name = "AptosHack2025"
+version = "1.0.0"
+authors = []
+
+[addresses]
+VoiceVault="0x0bf154dc582a43ec543711fba16c44e02cec2f660868f1fa164f1816fa7f1952"
+
+[dev-addresses]
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "mainnet"
+subdir = "aptos-framework"
+
+[dev-dependencies]
