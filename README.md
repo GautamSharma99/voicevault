@@ -4,24 +4,30 @@
 
 VoiceVault is a decentralized platform for creating, owning, and monetizing AI voice models. Upload your voice, train custom AI models, and trade voice NFTs on the Aptos blockchain.
 
-## 🚀 Quick Start
+## 🛠️ Problem Statement
 
-**New to VoiceVault?** Start here:
-1. 📋 [STARTUP_CHECKLIST.md](./docs/STARTUP_CHECKLIST.md) - Get up and running in 5 minutes
-2. 🧪 [MOCK_TESTING_GUIDE.md](./docs/MOCK_TESTING_GUIDE.md) - **Test with mock voices (recommended first!)**
-3. 🧪 [TESTING_GUIDE.md](./docs/TESTING_GUIDE.md) - Full testing procedures
-4. 📚 [INTEGRATION_GUIDE.md](./docs/INTEGRATION_GUIDE.md) - Understand the architecture
-5. ⚡ [QUICK_REFERENCE.md](./docs/QUICK_REFERENCE.md) - Common operations reference
+AI-voice cloning tools (like ElevenLabs) allow people to create synthetic voices, but control, ownership, and monetization of those voices remain centralized and opaque. Literal voice identity can be copied, reused, or misused without transparent permission or proper compensation.
+
+Creators/users who train/own a unique voice currently have no easy way to:
+- Register their voice as a unique identity
+- Prove ownership
+- Monetize usage in a transparent, trust-less way
+
+Consumers who want to license a voice have no transparent, decentralized marketplace: rights, payments, and usage-tracking are opaque.
+
+## 🎯 Goal
+
+Provide a decentralized, transparent, secure “voice identity + marketplace + licensing/payment” platform on blockchain so that voice owners retain control, and usage is permissioned & paid.
+
 
 ## 📊 Project Status
 
 ✅ **Smart Contracts**: Deployed on Aptos Testnet  
-✅ **Frontend**: Fully integrated with blockchain  
+✅ **Frontend**: Fully integrated with Aptos
 ✅ **Wallet**: Aptos wallet adapter configured  
 ✅ **AI/ML**: OpenAI TTS + Gradio voice cloning  
 ⚠️ **Production**: Needs IPFS integration & event indexing
 
-See [CURRENT_STATUS.md](./docs/CURRENT_STATUS.md) for detailed status and roadmap.
 
 ## 🧪 Testing with Mock Data
 
@@ -31,9 +37,6 @@ The marketplace includes **6 mock voices** for testing the payment flow:
 - ✅ Verify payment splits work correctly
 - ✅ Practice the full user journey
 
-**Just connect your wallet and go to the Marketplace!** Mock voices appear automatically.
-
-See [MOCK_TESTING_GUIDE.md](./docs/MOCK_TESTING_GUIDE.md) for details.
 
 ## ✨ Features
 
@@ -82,17 +85,7 @@ npm run dev
 
 Visit `http://localhost:5173` to see the app.
 
-### Backend Setup
-
-```bash
-# Install Python dependencies
-pip install fastapi uvicorn python-multipart openai TTS
-
-# Run the backend server
-python main.py
-```
-
-Backend will be available at `http://localhost:8000`
+Backend will be available at `http://localhost:3001`
 
 ## 📁 Project Structure
 
@@ -124,9 +117,6 @@ VoiceVault/
 │   ├── main.tsx
 │   └── index.css
 ├── public/
-├── APTOS_WALLET_INTEGRATION.md
-├── BACKEND_INTEGRATION.md
-├── IMPLEMENTATION_SUMMARY.md
 └── package.json
 ```
 
@@ -146,19 +136,13 @@ VoiceVault/
 - **Network**: Aptos
 - **Wallet Adapter**: @aptos-labs/wallet-adapter-react
 - **SDK**: @aptos-labs/ts-sdk
-- **Supported Wallets**: Petra, Martian, Pontem
+- **Supported Wallets**: Petra
 
 ### Backend
-- **Framework**: FastAPI (Python)
-- **TTS Engine**: Coqui TTS
+- **Framework**: Node.js
+- **TTS Engine**: Open AI
 - **Voice Cloning**: Custom models
 - **Storage**: Local filesystem (can be upgraded to IPFS)
-
-## 📖 Documentation
-
-- **[Aptos Wallet Integration](./APTOS_WALLET_INTEGRATION.md)** - Complete guide to wallet integration
-- **[Backend Integration](./BACKEND_INTEGRATION.md)** - API documentation and setup
-- **[Implementation Summary](./IMPLEMENTATION_SUMMARY.md)** - Technical implementation details
 
 ## 🎨 Key Pages
 
@@ -239,25 +223,5 @@ Response: { message: string, id: string }
 - [ ] Multi-language support
 - [ ] Mobile app (React Native)
 
-## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 🙏 Acknowledgments
-
-- **Aptos Labs** for the amazing blockchain infrastructure
-- **shadcn** for the beautiful UI components
-- **Coqui TTS** for the text-to-speech engine
-- **OpenAI** for inspiration
-
-## 📞 Support
-
-For support, email support@voicevault.io or join our Discord server.
-
----
-
-**Built with ❤️ for the Aptos ecosystem**
+**Built with ❤️ by Vidip, Sahil, Rajarshi and Gautam for the Aptos ecosystem**
