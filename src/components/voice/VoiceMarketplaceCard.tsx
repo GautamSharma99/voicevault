@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { VoiceMetadata } from "@/hooks/useVoiceMetadata";
 import { usePayForInference } from "@/hooks/usePayForInference";
+import { useRewards } from "@/contexts/RewardsContext";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Play, Coins } from "lucide-react";
+import { Loader2, Play, Coins, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatAddress } from "@/lib/aptos";
 
@@ -15,16 +16,22 @@ interface VoiceMarketplaceCardProps {
 
 export function VoiceMarketplaceCard({ voice, onPaymentSuccess }: VoiceMarketplaceCardProps) {
   const { payForInference, getPaymentBreakdown, isPaying } = usePayForInference();
+  const { discountPercentage } = useRewards();
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
 
-  const breakdown = getPaymentBreakdown(voice.pricePerUse);
+  // Calculate discounted price
+  const originalPrice = voice.pricePerUse;
+  const discountedPrice = originalPrice * (1 - discountPercentage / 100);
+  const hasDiscount = discountPercentage > 0;
+
+  const breakdown = getPaymentBreakdown(discountedPrice);
 
   const handlePurchase = async () => {
     setShowPaymentDialog(false);
 
     const result = await payForInference({
       creatorAddress: voice.owner,
-      amount: voice.pricePerUse,
+      amount: discountedPrice, // Use discounted price
       royaltyRecipient: voice.owner, // Can be different if there's an original creator
       onSuccess: (txHash) => {
         if (onPaymentSuccess) {
@@ -44,10 +51,25 @@ export function VoiceMarketplaceCard({ voice, onPaymentSuccess }: VoiceMarketpla
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             {voice.name}
-            <Badge variant="secondary">{voice.pricePerUse} APT</Badge>
+            <div className="flex items-center gap-2">
+              {hasDiscount && (
+                <Badge variant="outline" className="text-xs line-through text-muted-foreground">
+                  {originalPrice} APT
+                </Badge>
+              )}
+              <Badge variant={hasDiscount ? "default" : "secondary"} className={hasDiscount ? "bg-green-500 hover:bg-green-600" : ""}>
+                {hasDiscount && <Sparkles className="w-3 h-3 mr-1" />}
+                {discountedPrice.toFixed(4)} APT
+              </Badge>
+            </div>
           </CardTitle>
-          <CardDescription>
-            by {formatAddress(voice.owner)}
+          <CardDescription className="flex items-center justify-between">
+            <span>by {formatAddress(voice.owner)}</span>
+            {hasDiscount && (
+              <span className="text-green-500 text-xs font-semibold">
+                {discountPercentage}% OFF
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -101,10 +123,31 @@ export function VoiceMarketplaceCard({ voice, onPaymentSuccess }: VoiceMarketpla
               <span className="font-medium">{voice.name}</span>
             </div>
 
+            {hasDiscount && (
+              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 space-y-1">
+                <div className="flex items-center gap-2 text-green-500 font-semibold text-sm">
+                  <Sparkles className="w-4 h-4" />
+                  PAT Discount Applied!
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground">Original Price:</span>
+                  <span className="line-through">{originalPrice} APT</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground">Discount ({discountPercentage}%):</span>
+                  <span className="text-green-500">-{(originalPrice - discountedPrice).toFixed(4)} APT</span>
+                </div>
+                <div className="flex justify-between items-center text-sm font-semibold border-t border-green-500/30 pt-1 mt-1">
+                  <span>You Pay:</span>
+                  <span className="text-green-500">{discountedPrice.toFixed(4)} APT</span>
+                </div>
+              </div>
+            )}
+
             <div className="border-t pt-4 space-y-2">
               <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Total Amount:</span>
-                <span className="font-medium">{breakdown.total} APT</span>
+                <span className="font-medium">{breakdown.total.toFixed(4)} APT</span>
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Platform Fee (2.5%):</span>

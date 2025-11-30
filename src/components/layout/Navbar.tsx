@@ -1,10 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X, Wallet, LogOut, Copy, Check } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useWallet } from "@/hooks/use-wallet";
 import { toast } from "sonner";
 import { formatAddress } from "@/lib/aptos";
+import { useRewards } from "@/contexts/RewardsContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,8 +27,20 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const { connected, account, connect, disconnect } = useWallet();
+  const { patBalance, discountPercentage, refreshBalance } = useRewards();
 
   const walletAddress = account?.address?.toString() || "";
+
+  // Refresh balance periodically to catch updates
+  useEffect(() => {
+    if (!connected) return;
+    
+    const interval = setInterval(() => {
+      refreshBalance();
+    }, 2000); // Check every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [connected, refreshBalance]);
 
   const handleCopyAddress = () => {
     if (!walletAddress) return;
@@ -102,11 +115,19 @@ export function Navbar() {
           {/* Right Section */}
           <div className="hidden md:flex items-center gap-7">
             {/* PAT / OFF badge */}
-            <div className="px-4 py-2 rounded-full bg-black/30 border border-white/10 backdrop-blur-md flex items-center gap-3 text-xs font-semibold shadow-inner">
-              <span className="text-yellow-400">0 PAT</span>
-              <span className="opacity-50">|</span>
-              <span className="text-green-400">0% OFF</span>
-            </div>
+            {connected && (
+              <div 
+                key={`pat-${patBalance}`}
+                className="px-4 py-2 rounded-full bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 backdrop-blur-md flex items-center gap-3 text-xs font-semibold shadow-lg animate-in fade-in slide-in-from-top-2 duration-500"
+              >
+                <span className="text-yellow-400 flex items-center gap-1">
+                  <span className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                  {patBalance} PAT
+                </span>
+                <span className="opacity-50">|</span>
+                <span className="text-green-400">{discountPercentage}% OFF</span>
+              </div>
+            )}
 
             {/* Wallet */}
             {connected && walletAddress ? (

@@ -34,6 +34,14 @@ export function usePayForInference() {
             const amountInOctas = aptToOctas(amount);
             const breakdown = calculatePaymentBreakdown(amountInOctas);
 
+            // Debug logging
+            console.log("=== Payment Breakdown ===");
+            console.log("Total amount:", amount, "APT =", amountInOctas, "Octas");
+            console.log("Platform fee:", breakdown.platformFee, "Octas =", (breakdown.platformFee / 100_000_000).toFixed(6), "APT");
+            console.log("Royalty:", breakdown.royaltyAmount, "Octas =", (breakdown.royaltyAmount / 100_000_000).toFixed(6), "APT");
+            console.log("Creator:", breakdown.creatorAmount, "Octas =", (breakdown.creatorAmount / 100_000_000).toFixed(6), "APT");
+            console.log("Sum check:", (breakdown.platformFee + breakdown.royaltyAmount + breakdown.creatorAmount), "should equal", amountInOctas);
+
             // Show breakdown before signing
             toast.info("Payment Breakdown", {
                 description: `Total: ${amount} APT | Platform: ${(breakdown.platformFee / 100_000_000).toFixed(4)} APT | Royalty: ${(breakdown.royaltyAmount / 100_000_000).toFixed(4)} APT | Creator: ${(breakdown.creatorAmount / 100_000_000).toFixed(4)} APT`,
@@ -93,6 +101,15 @@ export function usePayForInference() {
             toast.success("Payment successful!", {
                 description: `All payments completed! Final TX: ${txHash.slice(0, 8)}...${txHash.slice(-6)}`,
             });
+
+            // Award PAT token for successful payment
+            try {
+                // Import dynamically to avoid circular dependencies
+                const { useRewards } = await import("@/contexts/RewardsContext");
+                // Note: This won't work directly in a hook, we'll handle it in the component
+            } catch (error) {
+                console.log("Rewards context not available");
+            }
 
             // Call success callback
             if (onSuccess) {

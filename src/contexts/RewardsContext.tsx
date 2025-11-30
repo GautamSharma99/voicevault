@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useWallet } from '@/hooks/use-wallet';
-import { photonService, PhotonUser } from '@/services/photon';
+import { photonService } from '@/services/photon';
 import { toast } from 'sonner';
 
 interface RewardsContextType {
     patBalance: number;
+    setPatBalance: (value: number | ((prev: number) => number)) => void;
     discountPercentage: number;
     photonUserId: string | null;
     isAuthenticated: boolean;
@@ -56,30 +57,41 @@ export const RewardsProvider: React.FC<{ children: ReactNode }> = ({ children })
                         return;
                     }
 
-                    toast.loading("Connecting to Rewards Network...", { id: "photon-auth" });
+                    // Initialize local rewards system
+                    const userId = `local_${addressStr.slice(0, 8)}`;
+                    const initialBalance = 0;
 
-                    const { user, accessToken } = await photonService.register(addressStr);
-
-                    // Update State
-                    setPhotonUserId(user.id);
-                    setPatBalance(user.patBalance);
+                    setPhotonUserId(userId);
+                    setPatBalance(initialBalance);
                     setIsAuthenticated(true);
-                    photonService.setAccessToken(accessToken);
 
                     // Persist
-                    localStorage.setItem('photon_access_token', accessToken);
-                    localStorage.setItem('photon_user_id', user.id);
+                    localStorage.setItem('photon_user_id', userId);
                     localStorage.setItem('photon_wallet_address', addressStr);
-                    localStorage.setItem('photon_pat_balance', user.patBalance.toString());
+                    localStorage.setItem('photon_pat_balance', initialBalance.toString());
 
-                    toast.success("Rewards Active!", {
-                        id: "photon-auth",
-                        description: `Welcome! You have ${user.patBalance} PAT.`
-                    });
+                    // Try to register with Photon API (optional)
+                    try {
+                        toast.loading("Connecting to Rewards Network...", { id: "photon-auth" });
+                        const { user, accessToken } = await photonService.register(addressStr);
+
+                        photonService.setAccessToken(accessToken);
+                        localStorage.setItem('photon_access_token', accessToken);
+
+                        toast.success("Rewards Active!", {
+                            id: "photon-auth",
+                            description: `Welcome! You have ${initialBalance} PAT.`
+                        });
+                    } catch (apiError) {
+                        console.warn("Photon API unavailable, using local rewards");
+                        toast.success("Rewards Active (Local Mode)", {
+                            id: "photon-auth",
+                            description: `Welcome! You have ${initialBalance} PAT.`
+                        });
+                    }
 
                 } catch (error) {
-                    console.error("Photon auth failed", error);
-                    toast.error("Failed to connect to rewards", { id: "photon-auth" });
+                    console.error("Rewards initialization failed", error);
                 }
             } else if (!connected) {
                 // Cleanup on disconnect
@@ -97,27 +109,42 @@ export const RewardsProvider: React.FC<{ children: ReactNode }> = ({ children })
     }, [connected, account, isAuthenticated, photonUserId]);
 
     const refreshBalance = async () => {
-        if (!isAuthenticated) return;
         try {
-            // In a real app, we fetch from API. 
-            // For mock, we just read local state or assume the service returns something useful.
-            // Since our service mock is stateless, we'll just keep the current state 
-            // or maybe increment it slightly to show "activity" if we wanted.
-            // For now, we trust the local state updates from logEvent.
+            // Read from localStorage to sync state
+            const storedBalance = localStorage.getItem('photon_pat_balance');
+            if (storedBalance) {
+                const balance = parseInt(storedBalance);
+                console.log(`[Rewards] Refreshing balance: ${balance} PAT`);
+                setPatBalance(balance);
+            }
         } catch (error) {
             console.error("Failed to refresh balance", error);
         }
     };
 
     const logEvent = async (eventType: string, metadata?: any) => {
-        if (!isAuthenticated) return;
         try {
-            const { success, rewardEarned } = await photonService.logEvent(eventType, metadata);
-            if (success && rewardEarned > 0) {
-                const newBalance = patBalance + rewardEarned;
-                setPatBalance(newBalance);
-                localStorage.setItem('photon_pat_balance', newBalance.toString());
+            console.log(`[Rewards] Event: ${eventType}`, metadata);
+
+            // Simplified: Award 1 PAT for any event (no external API dependency)
+            const rewardEarned = 1;
+            const newBalance = patBalance + rewardEarned;
+
+            console.log(`[Rewards] PAT Balance: ${patBalance} → ${newBalance} (+${rewardEarned})`);
+            setPatBalance(newBalance);
+            localStorage.setItem('photon_pat_balance', newBalance.toString());
+
+            // Optional: Try to log to Photon API but don't fail if it errors
+            if (isAuthenticated) {
+                try {
+                    await photonService.logEvent(eventType, metadata);
+                } catch (apiError) {
+                    console.warn("[Rewards] Photon API unavailable, using local rewards only");
+                }
             }
+
+            // Small delay to ensure state updates
+            await new Promise(resolve => setTimeout(resolve, 100));
         } catch (error) {
             console.error("Failed to log event", error);
         }
@@ -132,7 +159,8 @@ export const RewardsProvider: React.FC<{ children: ReactNode }> = ({ children })
             photonUserId,
             isAuthenticated,
             refreshBalance,
-            logEvent
+            logEvent,
+            setPatBalance
         }}>
             {children}
         </RewardsContext.Provider>

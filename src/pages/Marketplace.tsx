@@ -17,6 +17,8 @@ import { getVoiceAddresses } from "@/lib/voiceRegistry";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { InfoIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRewards } from "@/contexts/RewardsContext";
+import { ScratchCardModal } from "@/components/rewards/ScratchCardModal";
 
 const filterTabs = [
   { id: "trending", label: "Trending", icon: TrendingUp },
@@ -87,6 +89,11 @@ const Marketplace = () => {
   const [activeFilter, setActiveFilter] = useState("trending");
   const [voiceAddresses, setVoiceAddresses] = useState<string[]>([]);
   
+  // Rewards system
+  const { logEvent, patBalance, discountPercentage } = useRewards();
+  const [showScratchCard, setShowScratchCard] = useState(false);
+  const [scratchCardReward, setScratchCardReward] = useState(0);
+  
   // TTS Dialog state
   const [selectedVoice, setSelectedVoice] = useState<VoiceMetadata | null>(null);
   const [paymentTxHash, setPaymentTxHash] = useState<string | null>(null);
@@ -108,9 +115,28 @@ const Marketplace = () => {
   const voices = onChainVoices.length > 0 ? onChainVoices : MOCK_VOICES;
   const isLoading = isLoadingOnChain;
 
-  const handleVoiceSelected = (voice: VoiceMetadata, txHash: string) => {
+  const handleVoiceSelected = async (voice: VoiceMetadata, txHash: string) => {
     setSelectedVoice(voice);
     setPaymentTxHash(txHash);
+    
+    // Award PAT token for successful payment
+    await logEvent("VOICE_PURCHASED", {
+      voiceName: voice.name,
+      price: voice.pricePerUse,
+      txHash: txHash,
+    });
+    
+    // Show scratch card with reward
+    setScratchCardReward(1); // +1 PAT per purchase
+    setShowScratchCard(true);
+    
+    // After scratch card is closed, show TTS dialog
+    // (handled by scratch card onClose)
+  };
+
+  const handleScratchCardClose = () => {
+    setShowScratchCard(false);
+    // Now show TTS dialog
     setShowTTSDialog(true);
     setGeneratedAudioUrl(null);
     setTtsText("");
@@ -184,7 +210,7 @@ const Marketplace = () => {
       </Helmet>
       <div className="min-h-screen bg-background">
         <Navbar />
-        <main className="pt-24 pb-16">
+        <main className="pt-32 pb-16">
           <div className="container mx-auto px-4">
             {/* Header */}
             <div className="max-w-2xl mb-8">
@@ -274,7 +300,16 @@ const Marketplace = () => {
         <Footer />
       </div>
 
-      {/* TTS Generation Dialog (shown after payment) */}
+      {/* Scratch Card Modal (shown after payment) */}
+      <ScratchCardModal
+        isOpen={showScratchCard}
+        onClose={handleScratchCardClose}
+        reward={scratchCardReward}
+        patBalance={patBalance}
+        discountPercentage={discountPercentage}
+      />
+
+      {/* TTS Generation Dialog (shown after scratch card) */}
       <Dialog open={showTTSDialog} onOpenChange={setShowTTSDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
