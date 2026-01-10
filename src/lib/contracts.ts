@@ -1,14 +1,14 @@
 // Contract addresses and module names for deployed Move contracts
 export const CONTRACTS = {
   PAYMENT: {
-    address: "0xed25fa42116e7247381a3168b0de39af2eb7bedf4db94364c41fc7699b1c1a71",
+    address: "0xb0fcc55b9a116fec51295eb73b03ac31083a841290405c955fc088c2eeb0bf27",
     module: "payment_contract",
   },
   VOICE_IDENTITY: {
-    address: "0x0bf154dc582a43ec543711fba16c44e02cec2f660868f1fa164f1816fa7f1952",
+    address: "0x594d426ee5f8d800c7ede249d83a4cbfc4ee0c7dbcefece5ae6e727b7b0cf9db",
     module: "voice_identity",
   },
-  PLATFORM_ADDRESS: "0xed25fa42116e7247381a3168b0de39af2eb7bedf4db94364c41fc7699b1c1a71", // Platform fee recipient
+  PLATFORM_ADDRESS: "0xb0fcc55b9a116fec51295eb73b03ac31083a841290405c955fc088c2eeb0bf27", // Platform fee recipient
 } as const;
 
 // Fee structure (matching Move contract)

@@ -99,21 +99,12 @@ const Marketplace = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedAudioUrl, setGeneratedAudioUrl] = useState<string | null>(null);
 
-  // Load voice addresses from backend registry
+  // Load voice addresses from localStorage registry
+  // Note: Voice registration is stored on Aptos blockchain, but we maintain
+  // a local registry for marketplace discovery
   useEffect(() => {
-    const loadVoiceAddresses = async () => {
-      try {
-        const { backendApi } = await import("@/lib/api");
-        const addresses = await backendApi.getVoiceAddresses();
-        setVoiceAddresses(addresses);
-      } catch (err) {
-        console.error("Failed to load voice addresses:", err);
-        // Fallback to local storage if backend fails
-        const localAddresses = getVoiceAddresses();
-        setVoiceAddresses(localAddresses);
-      }
-    };
-    loadVoiceAddresses();
+    const addresses = getVoiceAddresses();
+    setVoiceAddresses(addresses);
   }, []);
 
   // Fetch ElevenLabs voices
@@ -162,33 +153,17 @@ const Marketplace = () => {
     setSelectedVoice(voice);
     setPaymentTxHash(txHash);
     
-    // Track purchased voice on backend
-    const walletAddress = address?.toString() || "unknown";
-    try {
-      const { backendApi } = await import("@/lib/api");
-      await backendApi.addPurchasedVoice({
-        voiceId: voice.voiceId,
-        name: voice.name,
-        modelUri: voice.modelUri,
-        owner: voice.owner,
-        price: voice.pricePerUse,
-        txHash: txHash,
-        walletAddress: walletAddress,
-      });
-    } catch (err) {
-      console.error("Failed to track purchase on backend:", err);
-      // Fallback to local storage
-      const { addPurchasedVoice } = await import("@/lib/purchasedVoices");
-      addPurchasedVoice({
-        voiceId: voice.voiceId,
-        name: voice.name,
-        modelUri: voice.modelUri,
-        owner: voice.owner,
-        price: voice.pricePerUse,
-        purchasedAt: Date.now(),
-        txHash: txHash,
-      });
-    }
+    // Track purchased voice in localStorage
+    const { addPurchasedVoice } = await import("@/lib/purchasedVoices");
+    addPurchasedVoice({
+      voiceId: voice.voiceId,
+      name: voice.name,
+      modelUri: voice.modelUri,
+      owner: voice.owner,
+      price: voice.pricePerUse,
+      purchasedAt: Date.now(),
+      txHash: txHash,
+    });
 
     // After successful payment, open the TTS dialog directly
     setShowTTSDialog(true);

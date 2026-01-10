@@ -86,3 +86,24 @@ export async function getVoiceId(ownerAddress: string): Promise<string | null> {
     return null;
   }
 }
+
+/**
+ * Check if a voice exists for an owner address
+ */
+export async function checkVoiceExists(ownerAddress: string): Promise<boolean> {
+  try {
+    const result = await aptosClient.view({
+      payload: {
+        function: `${CONTRACTS.VOICE_IDENTITY.address}::${CONTRACTS.VOICE_IDENTITY.module}::voice_exists`,
+        typeArguments: [],
+        functionArguments: [ownerAddress],
+      },
+    });
+
+    return result[0] as boolean;
+  } catch (error) {
+    // If function fails, voice likely doesn't exist
+    console.error("Error checking voice existence:", error);
+    return false;
+  }
+}

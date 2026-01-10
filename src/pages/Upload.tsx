@@ -381,8 +381,16 @@ const Upload = () => {
           {/* ------------------- Registration Form (AUTOFILLS) ------------------- */}
           <Card>
             <CardHeader>
-              <CardTitle>Register Your Voice Model</CardTitle>
-              <CardDescription>Register your cloned voice on-chain</CardDescription>
+              <CardTitle>Step 3: Register Your Voice Model on Blockchain</CardTitle>
+              <CardDescription>
+                After cloning your voice above, register it on Aptos blockchain to make it available in the marketplace.
+                <br />
+                {autoModelUri && (
+                  <span className="text-sm text-primary mt-2 block">
+                    ✓ Model URI auto-filled: {autoModelUri}
+                  </span>
+                )}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <VoiceRegistrationForm
