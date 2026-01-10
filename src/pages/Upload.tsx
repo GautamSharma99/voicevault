@@ -97,7 +97,8 @@ const Upload = () => {
     try {
       const { backendApi } = await import("@/lib/api");
       toast.info("Generating speech...");
-      const audioBlob = await backendApi.generateElevenLabsSpeech(ttsVoiceId, ttsText);
+      // Use unified TTS endpoint
+      const audioBlob = await backendApi.generateTTS(`eleven:${ttsVoiceId}`, ttsText);
       const url = URL.createObjectURL(audioBlob);
       setTtsAudioUrl(url);
       toast.success("Speech generated successfully!");
@@ -160,10 +161,10 @@ const Upload = () => {
       setAutoName(`VoiceVault ${voiceId.slice(0, 4)}`);
       setAutoModelUri(`eleven:${voiceId}`);
 
-      // Generate speech with cloned voice
+      // Generate speech with cloned voice using unified endpoint
       toast.info("Generating speech...");
       try {
-        const audioBlob = await backendApi.generateElevenLabsSpeech(voiceId, cloneText);
+        const audioBlob = await backendApi.generateTTS(`eleven:${voiceId}`, cloneText);
         const url = URL.createObjectURL(audioBlob);
         setClonedUrl(url);
         toast.success("Audio generated successfully!");
@@ -189,8 +190,8 @@ const Upload = () => {
           setSavedVoiceId(voiceId);
           toast.success("Voice re-cloned successfully!");
 
-          // Retry TTS with new voice
-          const audioBlob = await backendApi.generateElevenLabsSpeech(voiceId, cloneText);
+          // Retry TTS with new voice using unified endpoint
+          const audioBlob = await backendApi.generateTTS(`eleven:${voiceId}`, cloneText);
           const url = URL.createObjectURL(audioBlob);
           setClonedUrl(url);
           toast.success("Audio generated successfully!");

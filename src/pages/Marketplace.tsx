@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Sparkles, Download } from "lucide-react";
 import { toast } from "sonner";
 import { getVoiceAddresses } from "@/lib/voiceRegistry";
+import { useAptosWallet } from "@/hooks/useAptosWallet";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { InfoIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -83,6 +84,7 @@ const MOCK_VOICES: VoiceMetadata[] = [
 ];
 
 const Marketplace = () => {
+  const { address } = useAptosWallet();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("trending");
   const [voiceAddresses, setVoiceAddresses] = useState<string[]>([]);
@@ -97,10 +99,21 @@ const Marketplace = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedAudioUrl, setGeneratedAudioUrl] = useState<string | null>(null);
 
-  // Load voice addresses from registry
+  // Load voice addresses from backend registry
   useEffect(() => {
-    const addresses = getVoiceAddresses();
-    setVoiceAddresses(addresses);
+    const loadVoiceAddresses = async () => {
+      try {
+        const { backendApi } = await import("@/lib/api");
+        const addresses = await backendApi.getVoiceAddresses();
+        setVoiceAddresses(addresses);
+      } catch (err) {
+        console.error("Failed to load voice addresses:", err);
+        // Fallback to local storage if backend fails
+        const localAddresses = getVoiceAddresses();
+        setVoiceAddresses(localAddresses);
+      }
+    };
+    loadVoiceAddresses();
   }, []);
 
   // Fetch ElevenLabs voices
@@ -149,17 +162,33 @@ const Marketplace = () => {
     setSelectedVoice(voice);
     setPaymentTxHash(txHash);
     
-    // Track purchased voice
-    const { addPurchasedVoice } = await import("@/lib/purchasedVoices");
-    addPurchasedVoice({
-      voiceId: voice.voiceId,
-      name: voice.name,
-      modelUri: voice.modelUri,
-      owner: voice.owner,
-      price: voice.pricePerUse,
-      purchasedAt: Date.now(),
-      txHash: txHash,
-    });
+    // Track purchased voice on backend
+    const walletAddress = address?.toString() || "unknown";
+    try {
+      const { backendApi } = await import("@/lib/api");
+      await backendApi.addPurchasedVoice({
+        voiceId: voice.voiceId,
+        name: voice.name,
+        modelUri: voice.modelUri,
+        owner: voice.owner,
+        price: voice.pricePerUse,
+        txHash: txHash,
+        walletAddress: walletAddress,
+      });
+    } catch (err) {
+      console.error("Failed to track purchase on backend:", err);
+      // Fallback to local storage
+      const { addPurchasedVoice } = await import("@/lib/purchasedVoices");
+      addPurchasedVoice({
+        voiceId: voice.voiceId,
+        name: voice.name,
+        modelUri: voice.modelUri,
+        owner: voice.owner,
+        price: voice.pricePerUse,
+        purchasedAt: Date.now(),
+        txHash: txHash,
+      });
+    }
 
     // After successful payment, open the TTS dialog directly
     setShowTTSDialog(true);
@@ -176,46 +205,13 @@ const Marketplace = () => {
     setIsGenerating(true);
 
     try {
-      // Check if it's an ElevenLabs voice
-      if (selectedVoice.modelUri.startsWith("eleven:")) {
-        const voiceId = selectedVoice.modelUri.replace("eleven:", "");
-        const { backendApi } = await import("@/lib/api");
-        
-        toast.info("Generating speech with ElevenLabs...");
-        const audioBlob = await backendApi.generateElevenLabsSpeech(voiceId, ttsText);
-        setGeneratedAudioUrl(URL.createObjectURL(audioBlob));
-        toast.success("Audio generated successfully!");
-      } 
-      // Check if it's an OpenAI voice
-      else if (selectedVoice.modelUri.startsWith("openai:")) {
-        const voiceId = selectedVoice.modelUri.replace("openai:", "");
-        const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-
-        if (!apiKey) {
-          throw new Error("OpenAI API key not configured");
-        }
-
-        const response = await fetch("https://api.openai.com/v1/audio/speech", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "gpt-4o-mini-tts",
-            voice: voiceId,
-            input: ttsText,
-          }),
-        });
-
-        if (!response.ok) throw new Error("TTS generation failed");
-        const blob = await response.blob();
-        setGeneratedAudioUrl(URL.createObjectURL(blob));
-        toast.success("Audio generated successfully!");
-      } else {
-        // For custom voices, show a message
-        toast.info("Custom voice inference requires additional setup. Using default voice for demo.");
-      }
+      const { backendApi } = await import("@/lib/api");
+      
+      // Use unified TTS endpoint that handles both ElevenLabs and OpenAI
+      toast.info("Generating speech...");
+      const audioBlob = await backendApi.generateTTS(selectedVoice.modelUri, ttsText);
+      setGeneratedAudioUrl(URL.createObjectURL(audioBlob));
+      toast.success("Audio generated successfully!");
     } catch (error: any) {
       toast.error("Generation failed", {
         description: error.message || "Unknown error",

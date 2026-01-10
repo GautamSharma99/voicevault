@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { VoiceMetadata } from "@/hooks/useVoiceMetadata";
 import { usePayForInference } from "@/hooks/usePayForInference";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,9 +16,44 @@ interface VoiceMarketplaceCardProps {
 export function VoiceMarketplaceCard({ voice, onPaymentSuccess }: VoiceMarketplaceCardProps) {
   const { payForInference, getPaymentBreakdown, isPaying } = usePayForInference();
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [breakdown, setBreakdown] = useState<{
+    total: number;
+    platformFee: number;
+    royalty: number;
+    creator: number;
+  } | null>(null);
 
   const price = voice.pricePerUse;
-  const breakdown = getPaymentBreakdown(price);
+  
+  // Fetch breakdown from backend when dialog opens, fallback to local calculation
+  useEffect(() => {
+    if (showPaymentDialog && !breakdown) {
+      const fetchBreakdown = async () => {
+        try {
+          const { backendApi } = await import("@/lib/api");
+          const result = await backendApi.getPaymentBreakdown(price);
+          setBreakdown({
+            total: result.totalAmount,
+            platformFee: result.breakdown.platformFee.amount,
+            royalty: result.breakdown.royalty.amount,
+            creator: result.breakdown.creator.amount,
+          });
+        } catch (err) {
+          console.error("Failed to fetch breakdown from backend, using local calculation:", err);
+          // Fallback to local calculation
+          const localBreakdown = getPaymentBreakdown(price);
+          setBreakdown(localBreakdown);
+        }
+      };
+      fetchBreakdown();
+    } else if (!showPaymentDialog) {
+      // Reset when dialog closes
+      setBreakdown(null);
+    }
+  }, [showPaymentDialog, price]);
+  
+  // Ensure we have a breakdown to display (use local as default)
+  const displayBreakdown = breakdown || getPaymentBreakdown(price);
 
   const handlePurchase = async () => {
     setShowPaymentDialog(false);
@@ -118,19 +153,19 @@ export function VoiceMarketplaceCard({ voice, onPaymentSuccess }: VoiceMarketpla
             <div className="border-t pt-4 space-y-2">
               <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Total Amount:</span>
-                <span className="font-medium">{breakdown.total.toFixed(4)} APT</span>
+                <span className="font-medium">{displayBreakdown.total.toFixed(4)} APT</span>
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Platform Fee (2.5%):</span>
-                <span>{breakdown.platformFee.toFixed(4)} APT</span>
+                <span>{displayBreakdown.platformFee.toFixed(4)} APT</span>
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Royalty (10%):</span>
-                <span>{breakdown.royalty.toFixed(4)} APT</span>
+                <span>{displayBreakdown.royalty.toFixed(4)} APT</span>
               </div>
               <div className="flex justify-between items-center text-sm font-medium border-t pt-2">
                 <span>Creator Receives:</span>
-                <span className="text-primary">{breakdown.creator.toFixed(4)} APT</span>
+                <span className="text-primary">{displayBreakdown.creator.toFixed(4)} APT</span>
               </div>
             </div>
           </div>

@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Loader2, CheckCircle2, Upload, FileAudio } from "lucide-react";
 import { toast } from "sonner";
 import { addVoiceToRegistry } from "@/lib/voiceRegistry";
+import { backendApi } from "@/lib/api";
 
 interface VoiceRegistrationFormProps {
   autoName?: string;
@@ -99,8 +100,15 @@ export function VoiceRegistrationForm({ autoName = "", autoModelUri = "" }: Voic
     });
 
     if (result?.success) {
-      // Add to voice registry for marketplace
-      addVoiceToRegistry(address.toString(), formData.name);
+      // Add to voice registry on backend (and local storage as fallback)
+      try {
+        await backendApi.registerVoice(address.toString(), formData.name, address.toString());
+        toast.success("Voice registered on backend registry!");
+      } catch (err) {
+        console.error("Failed to register on backend, using local storage:", err);
+        // Fallback to local storage
+        addVoiceToRegistry(address.toString(), formData.name);
+      }
       
       // Reset form
       setFormData({
