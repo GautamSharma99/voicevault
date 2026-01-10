@@ -3,15 +3,16 @@ import cors from "cors";
 import dotenv from "dotenv";
 import fetch from "node-fetch";
 import FormData from "form-data";
-import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 
+// Get the directory of the current file (backend/)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-dotenv.config();
+// Load .env from project root (one level up from backend/)
+dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "200mb" }));
@@ -20,49 +21,8 @@ app.use(express.json({ limit: "200mb" }));
 const ELEVEN_KEY = process.env.ELEVENLABS_API_KEY;
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
-if (!ELEVEN_KEY) console.warn("⚠️ Missing ELEVENLABS_API_KEY - ElevenLabs will not work");
-if (!OPENAI_KEY) console.warn("⚠️ Missing OPENAI_API_KEY - OpenAI TTS will not work");
-
-// Data storage paths
-const DATA_DIR = path.join(__dirname, "data");
-const VOICE_REGISTRY_FILE = path.join(DATA_DIR, "voice-registry.json");
-const PURCHASED_VOICES_FILE = path.join(DATA_DIR, "purchased-voices.json");
-
-// Ensure data directory exists
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-
-// Initialize data files if they don't exist
-const initDataFile = (filePath, defaultValue = []) => {
-  if (!fs.existsSync(filePath)) {
-    fs.writeFileSync(filePath, JSON.stringify(defaultValue, null, 2));
-  }
-};
-
-initDataFile(VOICE_REGISTRY_FILE);
-initDataFile(PURCHASED_VOICES_FILE);
-
-// Helper functions for data persistence
-const readJsonFile = (filePath) => {
-  try {
-    const data = fs.readFileSync(filePath, "utf8");
-    return JSON.parse(data);
-  } catch (error) {
-    console.error(`Error reading ${filePath}:`, error);
-    return [];
-  }
-};
-
-const writeJsonFile = (filePath, data) => {
-  try {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-    return true;
-  } catch (error) {
-    console.error(`Error writing ${filePath}:`, error);
-    return false;
-  }
-};
+if (!ELEVEN_KEY) console.warn("⚠️ Missing ELEVENLABS_API_KEY");
+if (!OPENAI_KEY) console.warn("⚠️ Missing OPENAI_API_KEY");
 
 // ==================== ElevenLabs TTS ====================
 
@@ -322,179 +282,14 @@ app.post("/api/payment/breakdown", async (req, res) => {
   }
 });
 
-// ==================== Voice Registry Management ====================
-
-// 7️⃣ Get all registered voices
-app.get("/api/registry/voices", async (req, res) => {
-  try {
-    const registry = readJsonFile(VOICE_REGISTRY_FILE);
-    res.json({ voices: registry });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch voice registry", message: err.message });
-  }
-});
-
-// 8️⃣ Register a new voice
-app.post("/api/registry/voices", async (req, res) => {
-  try {
-    const { address, name, walletAddress } = req.body;
-    
-    if (!address) return res.status(400).json({ error: "address parameter missing" });
-    if (!name) return res.status(400).json({ error: "name parameter missing" });
-
-    const registry = readJsonFile(VOICE_REGISTRY_FILE);
-    
-    // Check if already exists
-    const exists = registry.some((entry) => entry.address === address);
-    if (exists) {
-      return res.status(409).json({ error: "Voice already registered", voice: registry.find(e => e.address === address) });
-    }
-
-    const newEntry = {
-      address,
-      name,
-      walletAddress: walletAddress || null,
-      registeredAt: Date.now(),
-    };
-
-    registry.push(newEntry);
-    writeJsonFile(VOICE_REGISTRY_FILE, registry);
-
-    res.json({ success: true, voice: newEntry });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to register voice", message: err.message });
-  }
-});
-
-// 9️⃣ Get voice addresses for marketplace
-app.get("/api/registry/addresses", async (req, res) => {
-  try {
-    const registry = readJsonFile(VOICE_REGISTRY_FILE);
-    const addresses = registry.map((entry) => entry.address);
-    res.json({ addresses });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch voice addresses", message: err.message });
-  }
-});
-
-// ==================== Purchased Voices Tracking ====================
-
-// 🔟 Get purchased voices for a wallet
-app.get("/api/purchased/voices", async (req, res) => {
-  try {
-    const { walletAddress } = req.query;
-    const purchases = readJsonFile(PURCHASED_VOICES_FILE);
-    
-    // Filter by wallet if provided
-    if (walletAddress) {
-      const filtered = purchases.filter((p) => p.walletAddress === walletAddress);
-      return res.json({ voices: filtered });
-    }
-
-    res.json({ voices: purchases });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch purchased voices", message: err.message });
-  }
-});
-
-// 1️⃣1️⃣ Add purchased voice
-app.post("/api/purchased/voices", async (req, res) => {
-  try {
-    const { voiceId, name, modelUri, owner, price, txHash, walletAddress } = req.body;
-    
-    if (!voiceId || !owner || !txHash || !walletAddress) {
-      return res.status(400).json({ error: "Missing required fields: voiceId, owner, txHash, walletAddress" });
-    }
-
-    const purchases = readJsonFile(PURCHASED_VOICES_FILE);
-    
-    // Check if already purchased by this wallet
-    const alreadyPurchased = purchases.some(
-      (p) => p.voiceId === voiceId && p.owner === owner && p.walletAddress === walletAddress
-    );
-
-    if (alreadyPurchased) {
-      return res.status(409).json({ error: "Voice already purchased by this wallet" });
-    }
-
-    const newPurchase = {
-      voiceId,
-      name: name || `Voice ${voiceId}`,
-      modelUri: modelUri || "",
-      owner,
-      price: price || 0,
-      purchasedAt: Date.now(),
-      txHash,
-      walletAddress,
-    };
-
-    purchases.push(newPurchase);
-    writeJsonFile(PURCHASED_VOICES_FILE, purchases);
-
-    res.json({ success: true, purchase: newPurchase });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to record purchase", message: err.message });
-  }
-});
-
-// 1️⃣2️⃣ Check if voice is purchased
-app.get("/api/purchased/check", async (req, res) => {
-  try {
-    const { voiceId, owner, walletAddress } = req.query;
-    
-    if (!voiceId || !owner || !walletAddress) {
-      return res.status(400).json({ error: "Missing required query parameters: voiceId, owner, walletAddress" });
-    }
-
-    const purchases = readJsonFile(PURCHASED_VOICES_FILE);
-    const isPurchased = purchases.some(
-      (p) => p.voiceId === voiceId && p.owner === owner && p.walletAddress === walletAddress
-    );
-
-    res.json({ isPurchased });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to check purchase status", message: err.message });
-  }
-});
-
-// ==================== Voice Metadata Aggregation ====================
-
-// 1️⃣3️⃣ Get voice metadata from blockchain (requires Aptos node URL)
-// This endpoint can be extended to fetch from blockchain, but for now returns metadata based on registry
-app.get("/api/voices/metadata", async (req, res) => {
-  try {
-    const { addresses } = req.query;
-    
-    if (!addresses) {
-      return res.status(400).json({ error: "addresses query parameter required (comma-separated)" });
-    }
-
-    const addressList = typeof addresses === "string" ? addresses.split(",") : addresses;
-    
-    // For now, return metadata from registry
-    // In production, this should query the Aptos blockchain
-    const registry = readJsonFile(VOICE_REGISTRY_FILE);
-    const metadata = addressList.map((address) => {
-      const entry = registry.find((e) => e.address === address);
-      return entry ? {
-        owner: entry.address,
-        name: entry.name,
-        registeredAt: entry.registeredAt,
-        // Additional metadata would come from blockchain query
-      } : null;
-    }).filter(Boolean);
-
-    res.json({ voices: metadata });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch voice metadata", message: err.message });
-  }
-});
+// ==================== Voice Metadata from Blockchain ====================
+// Note: Voice registry is stored on Aptos blockchain (contract2)
+// This endpoint can query blockchain directly if needed (future enhancement)
+// For now, frontend queries blockchain directly using useVoiceMetadata hook
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🔥 Voice server running → http://localhost:${PORT}`);
   console.log(`   - ElevenLabs TTS & Voice Cloning: ${ELEVEN_KEY ? '✅' : '❌ (API key missing)'}`);
   console.log(`   - OpenAI TTS: ${OPENAI_KEY ? '✅' : '❌ (API key missing)'}`);
-  console.log(`   - Voice Registry: ✅ (local storage)`);
-  console.log(`   - Purchased Voices: ✅ (local storage)`);
 });
